@@ -1,4 +1,5 @@
-// #include <dht11.h>
+#include <dht11.h>
+// #include <Bonezegei_DHT11.h>
 #include <WiFiMulti.h>
 #include <WiFiClientSecure.h>
 
@@ -6,13 +7,14 @@
 
 
 #include <esp_wifi.h>
-#define trigPin 20
-#define echoPin 21
+#define trigPin 21
+#define echoPin 20
 #define DHT11PIN 2
 
 WiFiMulti WiFiMulti;
 WebSocketsClient webSocket;
-// dht11 DHT11;
+dht11 DHT11;
+// Bonezegei_DHT11 dht(DHT11PIN);
 
 int _mavg [5];
 bool calibrated = false;
@@ -124,12 +126,14 @@ void setup() {
   Serial.begin (9600);
   pinMode(trigPin, OUTPUT); //Pin, do którego podłączymy trig jako wyjście
   pinMode(echoPin, INPUT); //a echo, jako wejście
+  pinMode(DHT11PIN, INPUT);
   calibrated = false;
   msg_in.full_distance = -1;
   delay(1000);
 	WiFiMulti.addAP("unable to identify", "123456789");
   while(WiFiMulti.run() != WL_CONNECTED) {
-		delay(100);
+    Serial.print(".");
+		delay(500);
 	}
   Serial.println("WiFi connected");
   // server address, port and URL
@@ -143,13 +147,16 @@ void setup() {
 
 	// try ever 5000 again if connection has failed
 	webSocket.setReconnectInterval(5000);
+  // delay(5000);
+  // Serial.println("Begin DHT11");
+  // dht.begin();
 }
 
        //sprawdzenie stanu sensora, a następnie wyświetlenie komunikatu na monitorze szeregowym
 
 int last_time = 0;
 void loop() {  
-  if(last_time + 1000 < millis())
+  if(last_time + 5000 < millis())
   {
 
     message_to_base_station msg_out;
@@ -161,13 +168,14 @@ void loop() {
     }
     else
     {
+      DHT11.read(DHT11PIN);
       msg_out.request_calibration = false;
-      msg_out.fill_level = map(check_distance(), msg_in.empty_distance, msg_in.full_distance, 0, 100);
+      msg_out.fill_level = min(max(map(check_distance(), msg_in.empty_distance, msg_in.full_distance, 0, 100),(long)1),(long)100);
       msg_out.temperature = check_temperature();
       msg_out.humidity = check_humidity();
       msg_out.pollution = check_pollution();
       msg_out.alarm = check_fire();
-      Serial.printf("Temp: %f Hum: %f\n", msg_out.temperature, msg_out.humidity);
+      Serial.printf("Fill: %ld Temp: %f Hum: %f\n", msg_out.fill_level, msg_out.temperature, msg_out.humidity);
     }
     webSocket.sendBIN((uint8_t*) &msg_out, sizeof(msg_out));
     Serial.println("Sent!");
@@ -182,6 +190,7 @@ void loop() {
   }
   // delay(10000);
   webSocket.loop();
+  delay(50);
 } 
 
 int check_distance()
@@ -191,13 +200,13 @@ int check_distance()
 
 float check_temperature()
 {
-  // return (float)DHT11.temperature;
+  return (float)DHT11.temperature;
   return 25;
 }
 
 float check_humidity()
 {
-  // return (float)DHT11.humidity;
+  return (float)DHT11.humidity;
   return 50;
 }
 
@@ -225,6 +234,7 @@ int distance() {
   dystans = czas / 58;
 
  // move_avg(_mavg, 5, dystans);
+  Serial.printf("Dystans: %ld\n", dystans);
   return dystans;
 }
 

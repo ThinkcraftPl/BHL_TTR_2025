@@ -65,6 +65,11 @@ const setupWss = (wss) => {
                 console.error('Error updating bin:', err);
             })
         });
+        ws.on('error', (err) => {
+            ws.close();
+            connections.delete(ws);
+            console.error('WebSocket error:', err);
+        });
         ws.on('close', () => {
             connections.delete(ws);
             console.log('WebSocket connection closed');
